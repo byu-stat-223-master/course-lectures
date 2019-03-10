@@ -77,6 +77,11 @@ sample_means <- sapply(1:n_draws, function(x){
 })
 ```
 
+#### replicate
+
+```{r}
+sample_means <- replicate(n_draws, mean(rbinom(sample_size, n_trials, pr_success)))
+```
 
 #### Tidyverse
 
