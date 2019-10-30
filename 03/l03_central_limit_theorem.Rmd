@@ -32,9 +32,9 @@ invisible(sapply(1:length(x), function(i) lines(c(x[i], x[i]), c(0, y[i]))))
 
 ```{r}
 library(tidyverse)
+theme_set(theme_bw())
 
-tibble(x, y) %>% 
-  ggplot(aes(x = x, y = y)) +
+ggplot(mapping = aes(x = x, y = y)) +
   ggalt::geom_lollipop()
 ```
 
@@ -107,8 +107,9 @@ sample_dist <- function(n = 40, n_trials = 10, pr_success = 0.1, n_draws = 1000)
 
 ```{r}
 demo_sample_dist <- function(n, n_trials = 10, pr_success = 0.1, n_draws = 1000) {
-  hist(sample_dist(n, n_trials, pr_success, n_draws), breaks = 30, freq = FALSE)
-  x <- seq(0, 3, length = 1000)
+  sample_means <- sample_dist(n, n_trials, pr_success, n_draws)
+  hist(sample_means, breaks = 30, freq = FALSE)
+  x <- seq(min(sample_means), max(sample_means), length = 1000)
   pop_mean <- n_trials * pr_success
   pop_variance <- pop_mean * (1 - pr_success) / n
   lines(x, dnorm(x, pop_mean, sqrt(pop_variance)), col = "red")
@@ -116,7 +117,7 @@ demo_sample_dist <- function(n, n_trials = 10, pr_success = 0.1, n_draws = 1000)
 ```
 
 ```{r}
-demo_sample_dist(40)
+demo_sample_dist(40, pr_success = 0.5)
 ```
 
 This is a manifestation of the Central Limit Theorem.
