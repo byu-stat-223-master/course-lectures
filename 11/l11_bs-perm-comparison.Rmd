@@ -1,0 +1,184 @@
+---
+title: "Bootstrapping and Permutation Testing"
+output: html_notebook
+---
+
+Now that we've been exposed to both bootstrapping and permutation testing, let's look at how they relate to one another. First, a brief definition of each method:
+
+* Bootstrapping: Sample with replacement to assess the uncertainty of the test statistic.
+* Permutation testing: Sample the data to simulate the null hypothesis in order to generate a distribution of the test statistic under the null hypothesis.
+
+Both methods are considered non-parametric and involve sampling from the original set of observations. Both methods can be used to conduct hypothesis tests. In fact, each method builds a distribution *based on the same test statistic*. However, these distributions are distinctly different and serve distinctly different purposes. An example can help demonstrate.
+
+## Memory test revisited
+Consider the memory test example comparing smokers and non-smokers. We originally explored this example using bootstrapping, which we will do again here. First, we need to establish our hypothesis.
+
+$$
+H_0 = \mu_{\text{non-smokers}} = \mu_{\text{smokers}}\\
+H_A = \mu_{\text{non-smokers}} > \mu_{\text{smokers}}
+$$
+
+```{r}
+nonsmokers <- c(18, 22, 21, 17, 20, 17, 23, 20, 22, 21)
+smokers <- c(16, 20, 14, 21, 20, 18, 13, 15, 17, 21)
+```
+
+```{r}
+(observed_difference <- mean(nonsmokers) - mean(smokers))
+```
+
+### Bootstrap
+```{r}
+n_samples <- 10000
+bs_differences <- replicate(n_samples, mean(sample(nonsmokers, replace = TRUE)) - mean(sample(smokers, replace = TRUE)))
+```
+
+Now that we've generated these bootstrapped samples of *possible differences in means*, we can visualize this:
+```{r}
+library(ggplot2)
+
+(p <- ggplot(mapping = aes(x = bs_differences)) +
+  geom_density(col = "blue") +
+  geom_vline(xintercept = observed_difference))
+```
+
+Notice how the distribution is centered around the `observed_difference`. That's because bootstrapping enables us to assess the uncertainty of sample statistics by looking at approximating distributions of the population created by sampling with replacement. We can easily construct a confidence interval on the `observed_difference` using the bootstrap distribution we just generated.
+
+```{r}
+(ci <- quantile(bs_differences, c(0.025, 0.975)))
+```
+
+```{r}
+(p <- p +
+   geom_vline(xintercept = ci, col = "red"))
+```
+
+Since 0 falls outside of the generated 95% confidence interval, we can reject the null hypothesis and conclude there is a significant difference between smokers and non-smokers.
+
+### Permutation Test
+Now, permutation tests *also* build a distribution of the difference in means, but in this case, that distribution represents the *null hypothesis*. In this case, our null hypothesis is that the mean of the two groups is equal. So, by extension, this means that, under the null hypothesis, it doesn't matter which group each observation belongs to. This is the basis for a permutation test.
+
+```{r}
+all_data <- c(nonsmokers, smokers)
+perm_differences<- replicate(n_samples, {
+  smoker_ind <- sample(length(all_data), length(smokers))
+  new_smokers <- all_data[smoker_ind]
+  new_nonsmokers <- all_data[-smoker_ind]
+  mean(new_nonsmokers) - mean(new_smokers)
+})
+```
+
+Now, we can visualize the results of our permutation test
+```{r}
+ggplot(mapping = aes(x = perm_differences)) +
+  geom_density(col = "green") +
+  geom_vline(xintercept = observed_difference)
+```
+
+In this case, we're comparing the `observed_difference` to the expected differences under the null hypothesis. Given this, we can calculate the likelihood of observing the `observed_difference` given the null hypothesis. This is our P-value:
+
+```{r}
+(p_value <- mean(perm_differences >= observed_difference))
+```
+
+Since this is an estimate based on a finite number of permutations, we need to include a confidence interval around our estimate:
+
+```{r}
+p_value + c(lower = -1, p_value = 0, upper = 1) * qnorm(0.975) * sqrt((p_value * (1 - p_value)) / n_samples)
+```
+
+Given this set of results, we reject the null hypothesis and conclude that non-smokers perform significantly better than smokers on these memory tests.
+
+Both bootstrapping and permutation testing resulted in the same conclusion, but the way we got there was unique to each method. This can be illustrated by plotting both distributions together.
+
+```{r}
+library(tidyr)
+
+tibble(
+  bootstrap = bs_differences,
+  permutation = perm_differences
+) %>% 
+  pivot_longer(cols = everything(), names_to = "method", values_to = "difference") %>% 
+  ggplot(aes(x = difference, col = method)) +
+  geom_density() +
+  geom_vline(xintercept = observed_difference) +
+  geom_vline(xintercept = ci, col = "red")
+```
+
+## Brothers revisited
+Let's do the same thing with the brothers data.
+```{r}
+brothers <- data.frame(
+  older = c(21, 10, 50, 15, 46, 39, 35, 25, 39, 31, 40, 35, 45, 33),
+  younger = c(44, 9, 61, 19, 44, 43, 26, 27, 26, 40, 57, 56, 52, 39)
+)
+```
+
+$$
+H_0 = \text{median}_{\text{younger}} = \text{median}_{\text{older}}\\
+H_A = \text{median}_{\text{younger}} > \text{median}_{\text{older}}
+$$
+
+```{r}
+(observed_difference <- median(brothers$older) - median(brothers$younger))
+```
+
+### Permutation Test
+```{r}
+n_samples <- 10000
+
+perm_results <- replicate(n_samples, {
+  perm_sample <- apply(brothers, 1, sample)
+  median(perm_sample[1,]) - median(perm_sample[2,])
+})
+```
+
+```{r}
+ggplot(mapping = aes(x = perm_results)) +
+  geom_density() +
+  geom_vline(xintercept = observed_difference)
+```
+```{r}
+(p_value <- mean(perm_results <= observed_difference))
+```
+
+Since this is an estimate based on a finite number of permutations, we need to include a confidence interval around our estimate:
+
+```{r}
+p_value + c(lower = -1, p_value = 0, upper = 1) * qnorm(0.975) * sqrt((p_value * (1 - p_value)) / n_samples)
+```
+
+### Bootstrap
+```{r}
+bs_results <- replicate(n_samples, {
+  median(sample(brothers$older, replace = TRUE)) - median(sample(brothers$younger, replace = TRUE))
+})
+```
+
+```{r}
+(p <- ggplot(mapping = aes(x = bs_results)) +
+  geom_density() +
+  geom_vline(xintercept = observed_difference))
+```
+
+```{r}
+(ci <- quantile(bs_results, c(0.025, 0.975)))
+```
+
+```{r}
+p + geom_vline(xintercept = ci, col = "red")
+```
+
+Now, all together:
+```{r}
+tibble(
+  permutation = perm_results,
+  bootstrap = bs_results
+) %>% 
+  pivot_longer(everything(), names_to = "method", values_to = "differences") %>% 
+  ggplot(aes(x = differences, col = method)) +
+  geom_density() +
+  geom_vline(xintercept = observed_difference) +
+  geom_vline(xintercept = ci, col = "red")
+```
+
