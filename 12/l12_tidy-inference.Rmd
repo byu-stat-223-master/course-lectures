@@ -3,7 +3,12 @@ title: "Tidy Inference"
 output: html_notebook
 ---
 
-Most of what we've done in this course hasn't been directly related to the tidyverse. We spent some time last week discussing and demonstrating the tidyverse, but we haven't done much with it in our regular course work. This lecture introduces the [`infer`](https://infer.netlify.com/){target="_blank"} package, which can be used to conduct permutation tests and other non-parametric tests in a "tidy"-centric way. 
+Most of what we've done in this course hasn't been directly related to the
+tidyverse. We spent some time last week discussing and demonstrating the
+tidyverse, but we haven't done much with it in our regular course work. This
+lecture introduces the [`infer`](https://infer.netlify.com/){target="_blank"}
+package, which can be used to conduct permutation tests and other non-parametric
+tests in a "tidy"-centric way.
 
 ![](infer-diagram.png)
 
@@ -31,14 +36,16 @@ brothers <- brothers %>%
   pivot_longer(everything(), names_to = "brother")
 ```
 
-Now that the data is reshaped, we need to remind ourselves of our hypothesis and calculate our test statistic.
+Now that the data is reshaped, we need to remind ourselves of our hypothesis and
+calculate our test statistic.
 
 $$
 H_0 = \text{median}_{\text{younger}} = \text{median}_{\text{older}}\\
 H_A = \text{median}_{\text{younger}} > \text{median}_{\text{older}}
 $$
 
-We could manually calculate the test statistic here, or we could use the functionality of the `infer` package to help us.
+We could manually calculate the test statistic here, or we could use the
+functionality of the `infer` package to help us.
 
 ```{r}
 (observed_stat <- brothers %>% 
@@ -48,7 +55,8 @@ We could manually calculate the test statistic here, or we could use the functio
 ```
 
 ### Permutation Test
-Now, we specify the response and explanatory variables using the `specify()` function.
+Now, we specify the response and explanatory variables using the `specify()`
+function.
 ```{r}
 (brothers_i <- brothers %>% 
   specify(response = value, explanatory = brother))
@@ -64,7 +72,8 @@ The next step is to declare the null hypothesis
   hypothesize("independence"))
 ```
 
-Now that we've defined our hypothesis in terms of our data, we can run our permutation test to generate data under the null hypothesis.
+Now that we've defined our hypothesis in terms of our data, we can run our
+permutation test to generate data under the null hypothesis.
 
 ```{r}
 n_reps <- 10000
@@ -81,7 +90,8 @@ null_data %>%
   geom_vline(xintercept = observed_stat)
 ```
 
-The `infer` package includes some tools to help visualize the resulting distribution and how it compares to the `observed_stat`
+The `infer` package includes some tools to help visualize the resulting
+distribution and how it compares to the `observed_stat`
 
 ```{r}
 null_data %>% 
