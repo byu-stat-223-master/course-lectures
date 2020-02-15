@@ -1,0 +1,113 @@
+---
+title: "Tidy Inference"
+output: html_notebook
+---
+
+Most of what we've done in this course hasn't been directly related to the tidyverse. We spent some time last week discussing and demonstrating the tidyverse, but we haven't done much with it in our regular course work. This lecture introduces the [`infer`](https://infer.netlify.com/){target="_blank"} package, which can be used to conduct permutation tests and other non-parametric tests in a "tidy"-centric way. 
+
+![](infer-diagram.png)
+
+We'll start with a familiar example.
+
+## Brothers
+```{r}
+brothers <- data.frame(
+  older = c(21, 10, 50, 15, 46, 39, 35, 25, 39, 31, 40, 35, 45, 33),
+  younger = c(44, 9, 61, 19, 44, 43, 26, 27, 26, 40, 57, 56, 52, 39)
+)
+```
+
+Now, we'll load the `infer` package and `ggpot2`:
+```{r}
+library(infer)
+library(ggplot2)
+```
+
+In order to use the `infer` package, we need to reshape our data slightly:
+```{r}
+library(tidyr)
+
+brothers <- brothers %>% 
+  pivot_longer(everything(), names_to = "brother")
+```
+
+Now that the data is reshaped, we need to remind ourselves of our hypothesis and calculate our test statistic.
+
+$$
+H_0 = \text{median}_{\text{younger}} = \text{median}_{\text{older}}\\
+H_A = \text{median}_{\text{younger}} > \text{median}_{\text{older}}
+$$
+
+We could manually calculate the test statistic here, or we could use the functionality of the `infer` package to help us.
+
+```{r}
+(observed_stat <- brothers %>% 
+   specify(value ~ brother) %>% 
+   calculate("diff in medians", order = c("older", "younger")) %>% 
+   dplyr::pull())
+```
+
+### Permutation Test
+Now, we specify the response and explanatory variables using the `specify()` function.
+```{r}
+(brothers_i <- brothers %>% 
+  specify(response = value, explanatory = brother))
+```
+
+```{r}
+class(brothers_i)
+```
+
+The next step is to declare the null hypothesis
+```{r}
+(brothers_i <- brothers_i %>% 
+  hypothesize("independence"))
+```
+
+Now that we've defined our hypothesis in terms of our data, we can run our permutation test to generate data under the null hypothesis.
+
+```{r}
+n_reps <- 10000
+null_data <- brothers_i %>% 
+  generate(reps = n_reps, type = "permute") %>% 
+  calculate(stat = "diff in medians", order = c("older", "younger"))
+```
+
+Then we can visualize our results
+```{r}
+null_data %>% 
+  ggplot(aes(x = stat)) +
+  geom_density() +
+  geom_vline(xintercept = observed_stat)
+```
+
+The `infer` package includes some tools to help visualize the resulting distribution and how it compares to the `observed_stat`
+
+```{r}
+null_data %>% 
+  visualise() +
+  shade_p_value(observed_stat, direction = "less")
+```
+
+There are also tools to help calculate the p value associated with the test
+```{r}
+(p_val <- null_data %>% 
+  get_p_value(observed_stat, direction = "less"))
+```
+
+### Bootstrap
+We can follow the same pattern to perform a bootstrap procedure
+```{r}
+bs_results <- brothers %>% 
+  specify(value ~ brother) %>% 
+  generate(reps = n_reps, type = "bootstrap") %>% 
+  calculate(stat = "diff in medians", order = c("older", "younger"))
+```
+
+```{r}
+(ci <- get_ci(bs_results))
+
+visualise(bs_results) +
+  shade_ci(ci)
+```
+
